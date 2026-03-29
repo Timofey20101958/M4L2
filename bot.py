@@ -5,6 +5,7 @@ import schedule
 import threading
 import time
 from config import *
+from datetime import timedelta
 
 bot = TeleBot(API_TOKEN)
 
