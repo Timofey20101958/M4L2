@@ -4,6 +4,7 @@ from config import DATABASE
 import os
 import cv2
 
+
 class DatabaseManager:
     def __init__(self, database):
         self.database = database
@@ -13,8 +14,10 @@ class DatabaseManager:
         with conn:
             conn.execute('''
             CREATE TABLE IF NOT EXISTS users (
-                user_id INTEGER PRIMARY KEY,
-                user_name TEXT
+            user_id INTEGER PRIMARY KEY,
+            user_name TEXT,
+            FOREIGN KEY(user_id) REFERENCES users(user_id),
+            FOREIGN KEY(prize_id) REFERENCES prizes(prize_id)
             )
         ''')
 
@@ -113,6 +116,37 @@ ORDER BY count_prizes DESC
 LIMIT 10
     ''')
         return cur.fetchall()
+
+def add_retry_request(self, user_id, prize_id):
+    request_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    conn = sqlite3.connect(self.database)
+    with conn:
+        conn.execute('''INSERT INTO retry_requests (user_id, prize_id, request_time) VALUES (?, ?, ?)''',
+                   (user_id, prize_id, request_time))
+        conn.commit()
+
+def get_available_prizes_for_retry(self, hours=1):
+    cutoff_time = (datetime.now() - timedelta(hours=hours)).strftime('%Y-%m-%d %H:%M:%S')
+    conn = sqlite3.connect(self.database)
+    with conn:
+        cur = conn.cursor()
+        cur.execute('''
+            SELECT DISTINCT p.prize_id, p.image
+            FROM prizes p
+            JOIN winners w ON p.prize_id = w.prize_id
+            WHERE w.win_time >= ?
+        ''', (cutoff_time,))
+        return cur.fetchall()
+
+def was_prize_sent_to_user(self, user_id, prize_id):
+    conn = sqlite3.connect(self.database)
+    with conn:
+        cur = conn.cursor()
+        cur.execute('SELECT * FROM winners WHERE user_id = ? AND prize_id = ?', (user_id, prize_id))
+        if cur.fetchone():
+            return True
+        cur.execute('SELECT * FROM retry_requests WHERE user_id = ? AND prize_id = ?', (user_id, prize_id))
+        return bool(cur.fetchone())
   
 def hide_img(img_name):
     image = cv2.imread(f'img/{img_name}')
